@@ -1,0 +1,100 @@
+! =====================================================================
+! CISCO ASA 5505 COMPLETE CONFIGURATION SCRIPT
+! Includes proper Cisco prompt levels (ciscoasa> vs ciscoasa(config)#)
+! =====================================================================
+
+! 1. Enter privileged EXEC mode from user EXEC mode
+ciscoasa> enable
+
+! 2. Enter global configuration mode
+ciscoasa# configure terminal
+
+! ---------------------------------------------------------------------
+! TASK I: Set Inside and Outside on ASA Firewall (Using VLAN Architecture)
+! ---------------------------------------------------------------------
+
+! Configure Inside Interface (Ethernet 0/0 assigned to VLAN 1)
+ciscoasa(config)# interface ethernet 0/0
+ciscoasa(config-if)# switchport access vlan 1
+ciscoasa(config-if)# no shutdown
+ciscoasa(config-if)# exit
+
+ciscoasa(config)# interface vlan 1
+ciscoasa(config-if)# nameif inside
+ciscoasa(config-if)# security-level 100
+ciscoasa(config-if)# ip address 110.1.1.2 255.0.0.0
+ciscoasa(config-if)# no shutdown
+ciscoasa(config-if)# exit
+
+! Configure Outside Interface (Ethernet 0/1 assigned to VLAN 2)
+ciscoasa(config)# interface ethernet 0/1
+ciscoasa(config-if)# switchport access vlan 2
+ciscoasa(config-if)# no shutdown
+ciscoasa(config-if)# exit
+
+ciscoasa(config)# interface vlan 2
+ciscoasa(config-if)# nameif outside
+ciscoasa(config-if)# security-level 0
+ciscoasa(config-if)# ip address 15.1.1.1 255.0.0.0
+ciscoasa(config-if)# no shutdown
+ciscoasa(config-if)# exit
+
+! ---------------------------------------------------------------------
+! TASK II: Configure DHCP Server and DNS IP on ASA
+! ---------------------------------------------------------------------
+
+! Define the IP address pool for internal DHCP clients
+ciscoasa(config)# dhcpd address 110.1.1.10-110.1.1.100 inside
+
+! Enable the DHCP server on the inside interface
+ciscoasa(config)# dhcpd enable inside
+
+! Assign the DNS server to be distributed to DHCP clients
+ciscoasa(config)# dhcpd dns 8.8.8.8 inside
+
+! ---------------------------------------------------------------------
+! TASK III: Configure Default Route on ASA
+! ---------------------------------------------------------------------
+
+! Point default route toward the ISP router gateway on the outside
+ciscoasa(config)# route outside 0.0.0.0 0.0.0.0 110.1.1.1
+
+! ---------------------------------------------------------------------
+! TASK IV: Create Object Network and Enable NAT on ASA
+! ---------------------------------------------------------------------
+
+! Create a network object for the internal network subnet
+ciscoasa(config)# object network INSIDE-NET
+ciscoasa(config-spec-object)# subnet 110.0.0.0 255.0.0.0
+
+! Enable dynamic NAT (PAT) mapping internal traffic to the outside interface IP
+ciscoasa(config-spec-object)# nat (inside,outside) dynamic interface
+ciscoasa(config-spec-object)# exit
+
+! ---------------------------------------------------------------------
+! TASK V: Configure SSH on ASA to Allow Remote Connection
+! ---------------------------------------------------------------------
+
+! Generate RSA keys required for SSH functionality
+ciscoasa(config)# crypto key generate rsa modulus 1024
+
+! Create a local administrator account for authentication
+ciscoasa(config)# username admin password cisco
+
+! Permit SSH access from any internal host
+ciscoasa(config)# ssh 0.0.0.0 0.0.0.0 inside
+ciscoasa(config)# ssh version 2
+
+! ---------------------------------------------------------------------
+! TASK VI: Create ACL on ASA
+! ---------------------------------------------------------------------
+
+! Create an extended ACL to permit inbound ICMP traffic on the outside interface
+ciscoasa(config)# access-list OUTSIDE-IN extended permit icmp any any
+
+! Apply the ACL to the outside interface inbound direction
+ciscoasa(config)# access-group OUTSIDE-IN in interface outside
+
+! Save configuration changes to startup configuration
+ciscoasa(config)# end
+ciscoasa# write memory
