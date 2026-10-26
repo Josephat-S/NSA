@@ -1,0 +1,75 @@
+#### ROUTER 1
+Router1> enable
+Router1# configure terminal
+
+! --- License and Initial Setup ---
+Router1(config)# license boot module c1900 technology-package securityk9
+Router1(config)# yes
+Router1(config)# end
+Router1# copy running-config startup-config
+Router1# reload
+
+! --- VPN Configuration ---
+Router1> enable
+Router1# configure terminal
+Router1(config)# access-list 110 permit ip 192.168.1.0 0.0.0.255 192.168.3.0 0.0.0.255
+
+! Phase 1: ISAKMP (IKEv1) Policy & Pre-Shared Key
+Router1(config)# crypto isakmp policy 10
+Router1(config-isakmp)# encryption aes 256
+Router1(config-isakmp)# authentication pre-share
+Router1(config-isakmp)# group 5
+Router1(config-isakmp)# exit
+
+Router1(config)# crypto isakmp key vpnpa55 address 10.2.2.2
+
+! Phase 2: IPsec Transform Set
+Router1(config)# crypto ipsec transform-set VPN-SET esp-aes esp-sha-hmac
+
+! Crypto Map Configuration
+Router1(config)# crypto map VPN-MAP 10 ipsec-isakmp
+Router1(config-crypto-map)# description VPN connection to R2
+Router1(config-crypto-map)# set peer 10.2.2.2
+Router1(config-crypto-map)# set transform-set VPN-SET
+Router1(config-crypto-map)# match address 110
+Router1(config-crypto-map)# exit
+
+! Apply Crypto Map to Interface
+Router1(config)# interface S0/0/0
+Router1(config-if)# crypto map VPN-MAP
+Router1(config-if)# end
+Router1# copy running-config startup-config
+
+
+#### ROUTER 2
+Router2> enable
+Router2# configure terminal
+
+! --- VPN Configuration ---
+Router2(config)# access-list 110 permit ip 192.168.3.0 0.0.0.255 192.168.1.0 0.0.0.255
+
+! Phase 1: ISAKMP (IKEv1) Policy & Pre-Shared Key
+Router2(config)# crypto isakmp policy 10
+Router2(config-isakmp)# encryption aes 256
+Router2(config-isakmp)# authentication pre-share
+Router2(config-isakmp)# group 5
+Router2(config-isakmp)# exit
+
+Router2(config)# crypto isakmp key vpnpa55 address 10.1.1.2
+
+! Phase 2: IPsec Transform Set
+Router2(config)# crypto ipsec transform-set VPN-SET esp-aes esp-sha-hmac
+
+! Crypto Map Configuration
+Router2(config)# crypto map VPN-MAP 10 ipsec-isakmp
+Router2(config-crypto-map)# description VPN connection to R1
+Router2(config-crypto-map)# set peer 10.1.1.2
+Router2(config-crypto-map)# set transform-set VPN-SET
+Router2(config-crypto-map)# match address 110
+Router2(config-crypto-map)# exit
+
+! Apply Crypto Map to Interface
+Router2(config)# interface S0/0/1
+Router2(config-if)# crypto map VPN-MAP
+Router2(config-if)# end
+Router2# copy running-config startup-config
